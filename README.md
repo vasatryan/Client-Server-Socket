@@ -23,7 +23,7 @@ This repository contains simple client and server programs implemented in C that
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/Nar2005ek/Client-Server-Socket.git
+   git clone https://github.com/vasatryan/Client-Server-Socket.git
    cd Client-Server-Socket
 2. Compile the client and server programs:
  ```bash
