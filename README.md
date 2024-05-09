@@ -4,15 +4,13 @@ This repository contains simple client and server programs implemented in C that
 
 ## Features
 
-- Allows clients to connect to the server and send shell commands.
+- Allows clients to connect to the server and when a client writes 'run shell', the client can run shell commands.
 - Server executes received shell commands and sends back the output to clients.
-- Supports handling multiple clients using threads.
 - Provides a basic command-line interface for the client to interact with the server.
 
 ## Requirements
 
 - Compiler version GNU gcc11+
-- OS version MacOs Ventura 13.2 and Linux Ubuntu 22.04
 
 ## Prerequisites
 
@@ -31,24 +29,12 @@ make
 ```
 3. Run the server in one terminal window:
 ```
-./bin/server
+./server
 ```
 4. Run the client in another terminal window:
 ```
-./bin/client
+./client
 ```
 ## Files
 - **client.c**: Implements the client-side program that connects to the server, sends commands, and receives responses.
 - __server.c__: Implements the server-side program that listens for client connections, handles incoming connections using threads, and executes shell commands.
-## Makefile
-The Makefile simplifies compilation. It includes the following targets:
-
-****
-- __all__ (default): Compiles both the client and server programs.
-- __client__: Compiles only the client program.
-- __server__: Compiles only the server program.
-- __clean__: Removes compiled binaries and object files.
-
-
-
-

@@ -1,123 +1,97 @@
-#include <arpa/inet.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
+#include <netdb.h>
+#include <unistd.h> // read(), write(), close()
+#include <sys/socket.h>
+#include <arpa/inet.h> // inet_addr()
 
-#define MAX_BUFFER 16384
+#define MAX 80
+#define PORT 8080
+#define SA struct sockaddr
 
-char buffer[MAX_BUFFER];
-int userSocket = -1;
-int count = 0;
-
-void function(int* userSocket, char* buffer) 
-{
-    if(*userSocket != -1) {
-        strcpy(buffer, "disconnect");
-        send(*userSocket, buffer, strlen(buffer), 0);
-        printf("\nDisconnected from server.\nCLIENT> ");
-        fflush(stdout);
-        close(*userSocket);
-        *userSocket = -1;
-    } 
-    else {
-        printf("\nNot connected to server.\n\rCLIENT> ");
-        fflush(stdout);
-    }
-}
-
-void functionHadler(int signalNumber) 
-{
-    function(&userSocket, buffer);
-}
-
-int main() 
-{
-    struct sockaddr_in serverAddr = {0};
-
-    char serverIP[30];
-    int serverPort = 0;
-
+void func(int sockfd) {
+    char buff[MAX];
+    int n;
+    
     while(1) {
-        memset(buffer, 0, sizeof(buffer));
-        signal(SIGINT, functionHadler);
-        printf("CLIENT> ");
-        fgets(buffer, sizeof(buffer), stdin);
-        int count = 0;
-        char* bufferPtr = buffer;
-        while(bufferPtr[count] == 32 || bufferPtr[count] == 10) {
-            ++count;
+        memset(buff, 0, sizeof(buff));
+        printf("Enter the string : ");
+        fflush(stdout);
+        if (fgets(buff, sizeof(buff), stdin) == NULL) {
+            perror("Error reading input");
+            exit(1);
         }
-        bufferPtr = buffer + count;
-        if(strncmp(bufferPtr, "disconnect", 10) == 0) {
-            if(userSocket != -1) {
-                send(userSocket, bufferPtr, strlen(buffer), 0);
-                printf("Disconnected from server.\n");
-                close(userSocket);
-                userSocket = -1;
-            } 
-            else {
-                printf("Not connected to any server.\n");
-            }
-        } 
-        else if(strncmp(bufferPtr, "shell ", 6) == 0) {
-            if(userSocket != -1) {
-                send(userSocket, bufferPtr, strlen(buffer), 0);
-                ssize_t recivedBytes = recv(userSocket, buffer, sizeof(buffer), 0);
-                if(recivedBytes > 0) {
-                    buffer[recivedBytes] = '\0';
-                    if(strncmp(buffer, "Error", 5) == 0) {
-                        printf("Server error: %s\n", buffer);
-                    } 
-                    else {
-                        printf("Server answer: \n%s", buffer);
-                    }
-                }
-            } 
-            else {
-                printf("Not connected to any server.\n");
-            }
-        } 
-        else if(strncmp(bufferPtr, "connect", 7) == 0) {
-            if(userSocket == -1) {
-                sscanf(bufferPtr + 8, "%s %d", serverIP, &serverPort);
-                userSocket = socket(AF_INET, SOCK_STREAM, 0);
-                if(userSocket == -1) {
-                    perror("Socket");
-                    return 1;
-                }
-                serverAddr.sin_family = AF_INET;
-                serverAddr.sin_addr.s_addr = inet_addr(serverIP);
-                serverAddr.sin_port = htons(serverPort);
+        buff[strcspn(buff, "\n")] = '\0'; // Remove the newline character
 
-                if(connect(userSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
-                    perror("Connect");
-                    close(userSocket);
-                    userSocket = -1;
-                } 
-                else {
-                    printf("Connected to server at %s.%d:\n", serverIP, serverPort);
+        if(strcmp(buff, "run shell") == 0){
+            write(sockfd, buff, sizeof(buff)); // Send the message to the server    
+            printf("Shell run in the server...\n");
+            // fflush(stdout);
+            while(1) {
+                memset(buff, 0, sizeof(buff));  // Clear the buffer
+                read(sockfd, buff, sizeof(buff)); // Read the message from the server
+                printf("%s", buff);
+                fflush(stdout); 
+                memset(buff, 0, sizeof(buff));
+                // printf("Enter the command : ");
+                if (fgets(buff, sizeof(buff), stdin) == NULL) {
+                    perror("Error reading input");
+                    exit(1);
                 }
-            } 
-            else {
-                printf("Already connected to a server:\n");
-            }
-        } 
-        else if(strcmp(buffer, "\n") == 0) {
-            continue;
+                // read(sockfd, buff, sizeof(buff)); // Read the message from the server   
+                buff[strcspn(buff, "\n")] = '\0';
+                write(sockfd, buff, sizeof(buff)); // Send the message to the server
+                if(strcmp(buff, "exit") == 0) {
+                    break;
+                }
+            }	
         }
-        else if(strncmp(bufferPtr, "exit", 4) == 0) {
-            if(userSocket != -1) {
-                close(userSocket);
-            } 
+
+        if ((strncmp(buff, "exit", 4)) == 0) {
+            printf("Client Exit...\n");
+            write(sockfd, buff, sizeof(buff)); 
             break;
         }
-        else {
-            printf("Invalid input. Please enter 'connect', 'disconnect', 'exit' or a valid  shell command:\n");
-        }
+        write(sockfd, buff, sizeof(buff));
+
+        memset(buff, 0, sizeof(buff)); 
+        read(sockfd, buff, sizeof(buff));
+        printf("From Server : %s", buff);
     }
-    if(userSocket != -1) {
-        close(userSocket);
-    }
-    return 0;
+}
+
+int main() {
+
+	int sockfd, connfd;
+	struct sockaddr_in servaddr, cli;
+
+	// socket create and verification
+	sockfd = socket(AF_INET, SOCK_STREAM, 0); // IPv4, TCP connection
+	if (sockfd == -1) {
+		printf("socket creation failed...\n");
+		exit(0);
+	} else {
+		printf("Socket successfully created..\n");
+	}
+	memset(&servaddr, 0, sizeof(servaddr));
+
+	// assign IP, PORT
+	servaddr.sin_family = AF_INET; // IPv4
+	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost
+	servaddr.sin_port = htons(PORT);// Server port 8080
+
+	// connect the client socket to server socket
+	if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
+		printf("connection with the server failed...\n");
+		exit(0);
+	} else {
+		printf("connected to the server..\n");
+	}
+
+	// function for chat
+	func(sockfd);
+
+	// close the socket
+	close(sockfd);
 }
